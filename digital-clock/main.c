@@ -33,6 +33,9 @@
 #define RTC_10YR_MASK 0xF0
 #define RTC_YR_MASK 0x0F
 
+#define SET_MODE 1
+#define RUN_MODE 0
+
 
 void write_spi(unsigned char, unsigned char);
 void update_drv_time(void);
@@ -58,6 +61,7 @@ volatile char ctl;
 int main(void)
 {
 	unsigned char intens = 0x07;
+	char mode = RUN_MODE;
 	
 	//Turn on life led
 	DDRB |= _BV(DDB0);
@@ -79,6 +83,7 @@ int main(void)
 	i2c_init();
 	
 	//Initialize RTC
+	read_rtc();
 	config_rtc();
 	
 	//Initialize LED Driver
@@ -87,18 +92,32 @@ int main(void)
 	write_spi(DRV_INTENSITY, intens);
 	write_spi(DRV_ENA, 0x01);
 		
-	sec = 0b00100001;
-	min = 0b01000011;
-	hrs = 0b01100110;
-	dow = 0b00000001;
-	date = 0b00010100;
-	month = 0b00000010;
-	year = 0b00010110;
-	
-	write_rtc();
+	//sec = 0b00100001;
+	//min = 0b01000011;
+	//hrs = 0b01100110;
+	//dow = 0b00000001;
+	//date = 0b00010100;
+	//month = 0b00000010;
+	//year = 0b00010110;
 	
 	while(1)
 	{
+		if(button_down(BTNMODE_MASK))
+		{
+			mode = SET_MODE;
+		}
+		
+		if(mode == SET_MODE)
+		{
+			
+		}
+		else
+		{
+			
+		}
+		
+		
+		
 		if(button_down(BTNINC_MASK))
 		{
 			if(intens < 0xE) intens++;
@@ -158,6 +177,11 @@ void config_rtc(void)
 	i2c_start_wait(RTC_ADDR + I2C_WRITE);
 	i2c_write(0x07); //set ctrl reg
 	i2c_write(0x10); //turn off sq wave
+	i2c_stop();
+	
+	i2c_start_wait(RTC_ADDR + I2C_WRITE);
+	i2c_write(0x00); //set sec reg
+	i2c_write(sec & 0x7F); //turn on osc
 	i2c_stop();
 }
 
