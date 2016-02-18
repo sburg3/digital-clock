@@ -63,6 +63,11 @@ int main(void)
 	unsigned char intens = 0x07;
 	char mode = RUN_MODE;
 	
+	enum set_digits {Month, Day, Year, Hour, Min};
+	enum set_digits cur_set;
+	
+	char btn_ct = 0;
+	
 	//Turn on life led
 	DDRB |= _BV(DDB0);
 	PORTB |= _BV(PORTB0);
@@ -102,38 +107,50 @@ int main(void)
 	
 	while(1)
 	{
+		//Process button inputs
 		if(button_down(BTNMODE_MASK))
 		{
-			mode = SET_MODE;
+			switch(mode){
+				case RUN_MODE: mode = SET_MODE; break;
+				case SET_MODE: (cur_set < Min)? cur_set++ : mode = RUN_MODE; break;
+			}
 		}
-		
-		if(mode == SET_MODE)
-		{
-			
-		}
-		else
-		{
-			
-		}
-		
-		
 		
 		if(button_down(BTNINC_MASK))
 		{
-			if(intens < 0xE) intens++;
-		}
-		if(button_down(BTNDEC_MASK))
-		{
-			if(intens > 0x0) intens--;
+			switch(mode){
+				case RUN_MODE: if(intens < 0xE) intens++; break;
+				case SET_MODE: if(btn_cnt < 99) btn_cnt++; break;
+			}
 		}
 		
-		if(PIND & _BV(PIND3))
+		if(button_down(BTNDEC_MASK))
 		{
-			update_drv_date();
-		} 
-		else 
-		{
-			update_drv_time();
+			switch(mode){
+				case RUN_MODE: if(intens > 0) intens--; break;
+				case SET_MODE: if(btn_cnt > 0) btn_cnt--; break;
+			}
+		}
+		
+		if(mode == RUN_MODE){
+			if(PIND & _BV(PIND3))
+			{
+				update_drv_date();
+			} 
+			else 
+			{
+				update_drv_time();
+			}
+		}
+		else {
+			switch(cur_set){
+				case Month:
+					
+				case Day:
+				case Year:
+				case Hour:
+				case Minute:
+			}
 		}
 		
 		read_rtc();
