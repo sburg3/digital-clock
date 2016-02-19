@@ -43,6 +43,7 @@ void update_drv_date(void);
 void config_rtc(void);
 void read_rtc(void);
 void write_rtc(void);
+char bin_to_bcd(char);
 
 ISR(TIMER0_OVF_vect)
 {
@@ -64,9 +65,9 @@ int main(void)
 	char mode = RUN_MODE;
 	
 	enum set_digits {Month, Day, Year, Hour, Min};
-	enum set_digits cur_set;
+	enum set_digits cur_set = Month;
 	
-	char btn_ct = 0;
+	char btn_cnt = 0;
 	
 	//Turn on life led
 	DDRB |= _BV(DDB0);
@@ -112,7 +113,19 @@ int main(void)
 		{
 			switch(mode){
 				case RUN_MODE: mode = SET_MODE; break;
-				case SET_MODE: (cur_set < Min)? cur_set++ : mode = RUN_MODE; break;
+				case SET_MODE:
+					if(cur_set < Min)
+					{
+						cur_set++;
+						btn_cnt = 0;
+					}
+					else
+					{
+						mode = RUN_MODE;
+						cur_set = Month;
+						write_rtc();
+					}
+					break;
 			}
 		}
 		
@@ -133,6 +146,7 @@ int main(void)
 		}
 		
 		if(mode == RUN_MODE){
+			read_rtc();
 			if(PIND & _BV(PIND3))
 			{
 				update_drv_date();
@@ -145,15 +159,46 @@ int main(void)
 		else {
 			switch(cur_set){
 				case Month:
-					
+					if(btn_cnt > 12) btn_cnt = 12;
+					month = bin_to_bcd(btn_cnt) && (RTC_10MONTH_MASK || RTC_MONTH_MASK);
+					break;
 				case Day:
+					if(btn_cnt > 31) btn_cnt = 31;
+					date = bin_to_bcd(btn_cnt) && (RTC_10DATE_MASK || RTC_DATE_MASK);
+					break;
 				case Year:
+					year = bin_to_bcd(btn_cnt) && (RTC_10YR_MASK || RTC_YR_MASK);
+					break;
 				case Hour:
+					if(btn_cnt > 23) btn_cnt = 23;
+					if(btn_cnt < 12)
+					{
+						hrs = bin_to_bcd(btn_cnt) && (RTC_10HR_MASK || RTC_HR_MASK);
+						hrs |= 0b01000000; //12/24 is high, set AM
+					}
+					else
+					{
+						hrs = bin_to_bcd(btn_cnt - 11) && (RTC_10HR_MASK || RTC_HR_MASK);
+						hrs |= 0b01100000; //12/24 is high, set PM
+					}
+					break;
 				case Minute:
+					if(btn_cnt > 59) btn_cnt = 59;
+					min = bin_to_bcd(btn_cnt) && (RTC_10MIN_MASK || RTC_MIN_MASK);
+					break;
+			}
+			sec = 0;
+			dow = 1;
+			
+			if(cur_set < Hour)
+			{
+				update_drv_date();
+			}
+			else
+			{
+				update_drv_time();
 			}
 		}
-		
-		read_rtc();
 
 		write_spi(DRV_INTENSITY,intens);
 	}
@@ -229,4 +274,15 @@ void read_rtc(void)
 	month = i2c_readAck();
 	year = i2c_readNak();
 	i2c_stop();
+}
+
+char bin_to_bcd(char in)
+{
+	char out = 0;
+	char ones = in % 10;
+	in -= ones;
+	out = in / 10;
+	out <<= 4;
+	out |= ones;
+	return out;
 }
