@@ -111,7 +111,8 @@ int main(void)
 		//Process button inputs
 		if(button_down(BTNMODE_MASK))
 		{
-			switch(mode){
+			switch(mode)
+			{
 				case RUN_MODE: mode = SET_MODE; break;
 				case SET_MODE:
 					if(cur_set < Min)
@@ -123,6 +124,7 @@ int main(void)
 					{
 						mode = RUN_MODE;
 						cur_set = Month;
+						btn_cnt = 0;
 						write_rtc();
 					}
 					break;
@@ -131,7 +133,8 @@ int main(void)
 		
 		if(button_down(BTNINC_MASK))
 		{
-			switch(mode){
+			switch(mode)
+			{
 				case RUN_MODE: if(intens < 0xE) intens++; break;
 				case SET_MODE: if(btn_cnt < 99) btn_cnt++; break;
 			}
@@ -139,13 +142,15 @@ int main(void)
 		
 		if(button_down(BTNDEC_MASK))
 		{
-			switch(mode){
+			switch(mode)
+			{
 				case RUN_MODE: if(intens > 0) intens--; break;
 				case SET_MODE: if(btn_cnt > 0) btn_cnt--; break;
 			}
 		}
 		
-		if(mode == RUN_MODE){
+		if(mode == RUN_MODE)
+		{
 			read_rtc();
 			if(PIND & _BV(PIND3))
 			{
@@ -156,35 +161,37 @@ int main(void)
 				update_drv_time();
 			}
 		}
-		else {
-			switch(cur_set){
+		else
+		{
+			switch(cur_set)
+			{
 				case Month:
 					if(btn_cnt > 12) btn_cnt = 12;
-					month = bin_to_bcd(btn_cnt) && (RTC_10MONTH_MASK || RTC_MONTH_MASK);
+					month = bin_to_bcd(btn_cnt) & (RTC_10MONTH_MASK | RTC_MONTH_MASK);
 					break;
 				case Day:
 					if(btn_cnt > 31) btn_cnt = 31;
-					date = bin_to_bcd(btn_cnt) && (RTC_10DATE_MASK || RTC_DATE_MASK);
+					date = bin_to_bcd(btn_cnt) & (RTC_10DATE_MASK | RTC_DATE_MASK);
 					break;
 				case Year:
-					year = bin_to_bcd(btn_cnt) && (RTC_10YR_MASK || RTC_YR_MASK);
+					year = bin_to_bcd(btn_cnt) & (RTC_10YR_MASK | RTC_YR_MASK);
 					break;
 				case Hour:
 					if(btn_cnt > 23) btn_cnt = 23;
-					if(btn_cnt < 12)
+					if(btn_cnt <= 12)
 					{
-						hrs = bin_to_bcd(btn_cnt) && (RTC_10HR_MASK || RTC_HR_MASK);
+						hrs = bin_to_bcd(btn_cnt) & (RTC_10HR_MASK | RTC_HR_MASK);
 						hrs |= 0b01000000; //12/24 is high, set AM
 					}
 					else
 					{
-						hrs = bin_to_bcd(btn_cnt - 11) && (RTC_10HR_MASK || RTC_HR_MASK);
+						hrs = bin_to_bcd(btn_cnt) & (RTC_10HR_MASK | RTC_HR_MASK);
 						hrs |= 0b01100000; //12/24 is high, set PM
 					}
 					break;
-				case Minute:
+				case Min:
 					if(btn_cnt > 59) btn_cnt = 59;
-					min = bin_to_bcd(btn_cnt) && (RTC_10MIN_MASK || RTC_MIN_MASK);
+					min = bin_to_bcd(btn_cnt) & (RTC_10MIN_MASK | RTC_MIN_MASK);
 					break;
 			}
 			sec = 0;
@@ -278,11 +285,12 @@ void read_rtc(void)
 
 char bin_to_bcd(char in)
 {
-	char out = 0;
-	char ones = in % 10;
-	in -= ones;
-	out = in / 10;
-	out <<= 4;
-	out |= ones;
-	return out;
+	char tens = 0;
+	while(in >= 10)
+	{
+		tens++;
+		in -=10;
+	}
+	
+	return (tens << 4) | in;
 }
