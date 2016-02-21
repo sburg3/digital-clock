@@ -11,12 +11,14 @@
 #include "debounce.h"
 #include "i2cmaster.h"
 
+//SPI addresses for MAX7221
 #define DRV_DIG_START 0x01
 #define DRV_MODE 0x09
 #define DRV_INTENSITY 0x0A
 #define DRV_LIMIT 0x0B
 #define DRV_ENA 0x0C
 
+//Masks for DS1307 RTC data
 #define RTC_ADDR 0xD0
 #define RTC_10SEC_MASK 0x70
 #define RTC_SEC_MASK 0x0F
@@ -33,9 +35,9 @@
 #define RTC_10YR_MASK 0xF0
 #define RTC_YR_MASK 0x0F
 
-#define SET_MODE 1
-#define RUN_MODE 0
-
+//Clock has AM/PM led indicator
+#define AM_LED_PORT PORTB0
+#define PM_LED_PORT PORTB1
 
 void write_spi(unsigned char, unsigned char);
 void update_drv_time(void);
@@ -50,6 +52,7 @@ ISR(TIMER0_OVF_vect)
 	debounce();
 }
 
+//holds time data to/from RTC
 volatile char sec;
 volatile char min;
 volatile char hrs;
@@ -61,19 +64,24 @@ volatile char ctl;
 
 int main(void)
 {
+	//Intensity of led display
 	unsigned char intens = 0x07;
-	char mode = RUN_MODE;
 	
+	//Order that time is set
 	enum set_digits {Month, Day, Year, Hour, Min};
 	enum set_digits cur_set = Month;
 	
+	//Clock runs normally in Run mode, but PB goes to set mode
+	enum modes {Run, Set};
+	enum modes cur_mode = Run;
+	
 	char btn_cnt = 0;
 	
-	//Turn on life led
+	//Set up AM/PM leds
 	DDRB |= _BV(DDB0);
-	PORTB |= _BV(PORTB0);
+	DDRB |= _BV(DDB1);
 	
-	//Set up Timer
+	//Set up Timer and debounce
 	TCCR0B = _BV(CS01) | _BV(CS00);
 	TIMSK0 = _BV(TOIE0);
 	
@@ -97,24 +105,16 @@ int main(void)
 	write_spi(DRV_MODE, 0xFF);
 	write_spi(DRV_INTENSITY, intens);
 	write_spi(DRV_ENA, 0x01);
-		
-	//sec = 0b00100001;
-	//min = 0b01000011;
-	//hrs = 0b01100110;
-	//dow = 0b00000001;
-	//date = 0b00010100;
-	//month = 0b00000010;
-	//year = 0b00010110;
 	
 	while(1)
 	{
 		//Process button inputs
 		if(button_down(BTNMODE_MASK))
 		{
-			switch(mode)
+			switch(cur_mode)
 			{
-				case RUN_MODE: mode = SET_MODE; break;
-				case SET_MODE:
+				case Run: cur_mode = Set; break;
+				case Set:
 					if(cur_set < Min)
 					{
 						cur_set++;
@@ -122,7 +122,7 @@ int main(void)
 					}
 					else
 					{
-						mode = RUN_MODE;
+						cur_mode = Run;
 						cur_set = Month;
 						btn_cnt = 0;
 						write_rtc();
@@ -133,23 +133,24 @@ int main(void)
 		
 		if(button_down(BTNINC_MASK))
 		{
-			switch(mode)
+			switch(cur_mode)
 			{
-				case RUN_MODE: if(intens < 0xE) intens++; break;
-				case SET_MODE: if(btn_cnt < 99) btn_cnt++; break;
+				case Run: if(intens < 0xE) intens++; break;
+				case Set: if(btn_cnt < 99) btn_cnt++; break;
 			}
 		}
 		
 		if(button_down(BTNDEC_MASK))
 		{
-			switch(mode)
+			switch(cur_mode)
 			{
-				case RUN_MODE: if(intens > 0) intens--; break;
-				case SET_MODE: if(btn_cnt > 0) btn_cnt--; break;
+				case Run: if(intens > 0) intens--; break;
+				case Set: if(btn_cnt > 0) btn_cnt--; break;
 			}
 		}
 		
-		if(mode == RUN_MODE)
+		//Handles Run/Set mode differences
+		if(cur_mode == Run)
 		{
 			read_rtc();
 			if(PIND & _BV(PIND3))
@@ -160,9 +161,20 @@ int main(void)
 			{
 				update_drv_time();
 			}
+			if(hrs & RTC_AM_MASK)
+			{
+				PORTB |= _BV(PM_LED_PORT);
+				PORTB &= ~_BV(AM_LED_PORT);
+			}
+			else
+			{
+				PORTB |= _BV(AM_LED_PORT);
+				PORTB &= ~_BV(PM_LED_PORT);
+			}
 		}
 		else
 		{
+			//User can us PBs to set time
 			switch(cur_set)
 			{
 				case Month:
@@ -200,10 +212,14 @@ int main(void)
 			if(cur_set < Hour)
 			{
 				update_drv_date();
+				PORTB |= _BV(AM_LED_PORT); //AM led indicates date is being set
+				PORTB &= ~_BV(PM_LED_PORT);
 			}
 			else
 			{
 				update_drv_time();
+				PORTB |= _BV(PM_LED_PORT); //PM led indicates time is being set
+				PORTB &= ~_BV(AM_LED_PORT);
 			}
 		}
 
@@ -211,6 +227,7 @@ int main(void)
 	}
 }
 
+//Write to 7221 7-seg driver
 void write_spi(unsigned char high_byte, unsigned char low_byte)
 {
 	PORTB &= ~_BV(PORTB2);
@@ -221,6 +238,7 @@ void write_spi(unsigned char high_byte, unsigned char low_byte)
 	PORTB |= _BV(PORTB2);
 }
 
+//Put time on 7-segs
 void update_drv_time(void)
 {
 	write_spi(DRV_DIG_START + 0, (sec & RTC_SEC_MASK));
@@ -231,6 +249,7 @@ void update_drv_time(void)
 	write_spi(DRV_DIG_START + 5, (hrs & RTC_10HR_MASK) >> 4);
 }
 
+//Put date on 7-segs
 void update_drv_date(void)
 {
 	write_spi(DRV_DIG_START + 0, (year & RTC_YR_MASK));
@@ -241,6 +260,7 @@ void update_drv_date(void)
 	write_spi(DRV_DIG_START + 5, (month & RTC_10MONTH_MASK) >> 4);
 }
 
+//Initialize RTC: no square wave out, ena oscillator
 void config_rtc(void)
 {
 	i2c_start_wait(RTC_ADDR + I2C_WRITE);
@@ -283,6 +303,7 @@ void read_rtc(void)
 	i2c_stop();
 }
 
+//RTC requires bcd encoding
 char bin_to_bcd(char in)
 {
 	char tens = 0;
