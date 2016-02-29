@@ -50,6 +50,12 @@ char bin_to_bcd(char);
 ISR(TIMER0_OVF_vect)
 {
 	debounce();
+	blink_cnt++;
+	if(blink_cnt > 100)
+	{
+		blink_cnt = 0;
+		blink = ~blink;
+	}	
 }
 
 //holds time data to/from RTC
@@ -62,18 +68,22 @@ volatile char month;
 volatile char year;
 volatile char ctl;
 
+//Order that time is set
+enum set_digits {Month, Day, Year, Hour, Min};
+volatile enum set_digits cur_set = Month;
+
+//Clock runs normally in Run mode, but PB goes to set mode
+enum modes {Run, Set};
+volatile enum modes cur_mode = Run;
+
+//Handle blink during set mode
+volatile char blink_cnt;
+volatile char blink;
+
 int main(void)
 {
 	//Intensity of led display
 	unsigned char intens = 0x07;
-	
-	//Order that time is set
-	enum set_digits {Month, Day, Year, Hour, Min};
-	enum set_digits cur_set = Month;
-	
-	//Clock runs normally in Run mode, but PB goes to set mode
-	enum modes {Run, Set};
-	enum modes cur_mode = Run;
 	
 	char btn_cnt = 0;
 	
@@ -243,21 +253,70 @@ void update_drv_time(void)
 {
 	write_spi(DRV_DIG_START + 0, (sec & RTC_SEC_MASK));
 	write_spi(DRV_DIG_START + 1, (sec & RTC_10SEC_MASK) >> 4);
-	write_spi(DRV_DIG_START + 2, (min & RTC_MIN_MASK));
-	write_spi(DRV_DIG_START + 3, (min & RTC_10MIN_MASK) >> 4);
-	write_spi(DRV_DIG_START + 4, (hrs & RTC_HR_MASK));
-	write_spi(DRV_DIG_START + 5, (hrs & RTC_10HR_MASK) >> 4);
+	
+	//Blink minute during Set
+	if(cur_mode == Set && cur_set == Min)
+	{
+		write_spi(DRV_DIG_START + 2, ((min | blink) & RTC_MIN_MASK));
+		write_spi(DRV_DIG_START + 3, ((min | blink) & RTC_10MIN_MASK) >> 4);
+	}
+	else
+	{
+		write_spi(DRV_DIG_START + 2, (min & RTC_MIN_MASK));
+		write_spi(DRV_DIG_START + 3, (min & RTC_10MIN_MASK) >> 4);	
+	}
+
+	//Blink hour during Set
+	if(cur_mode == Set && cur_set == Hour)
+	{
+		write_spi(DRV_DIG_START + 4, ((hrs | blink) & RTC_HR_MASK));
+		write_spi(DRV_DIG_START + 5, ((hrs | blink) & RTC_10HR_MASK) >> 4);
+	}
+	else
+	{
+		write_spi(DRV_DIG_START + 4, (hrs & RTC_HR_MASK));
+		write_spi(DRV_DIG_START + 5, (hrs & RTC_10HR_MASK) >> 4);	
+	}
 }
 
 //Put date on 7-segs
 void update_drv_date(void)
 {
-	write_spi(DRV_DIG_START + 0, (year & RTC_YR_MASK));
-	write_spi(DRV_DIG_START + 1, (year & RTC_10YR_MASK) >> 4);
-	write_spi(DRV_DIG_START + 2, (date & RTC_DATE_MASK));
-	write_spi(DRV_DIG_START + 3, (date & RTC_10DATE_MASK) >> 4);
-	write_spi(DRV_DIG_START + 4, (month & RTC_MONTH_MASK));
-	write_spi(DRV_DIG_START + 5, (month & RTC_10MONTH_MASK) >> 4);
+	//Blink year during Set
+	if(cur_mode == Set && cur_set == Year)
+	{
+		write_spi(DRV_DIG_START + 0, ((year | blink) & RTC_YR_MASK));
+		write_spi(DRV_DIG_START + 1, ((year | blink) & RTC_10YR_MASK) >> 4);
+	}
+	else
+	{
+		write_spi(DRV_DIG_START + 0, (year & RTC_YR_MASK));
+		write_spi(DRV_DIG_START + 1, (year & RTC_10YR_MASK) >> 4);	
+	}
+	
+	//Blink day
+	if(cur_mode == Set && cur_set == Day)
+	{
+		write_spi(DRV_DIG_START + 2, ((date | blink) & RTC_DATE_MASK));
+		write_spi(DRV_DIG_START + 3, ((date | blink) & RTC_10DATE_MASK) >> 4);
+	}
+	else
+	{
+		write_spi(DRV_DIG_START + 2, (date & RTC_DATE_MASK));
+		write_spi(DRV_DIG_START + 3, (date & RTC_10DATE_MASK) >> 4);
+	}
+
+	//Blink month
+	if(cur_mode == Set && cur_set = Month)
+	{
+		write_spi(DRV_DIG_START + 4, ((month | blink) & RTC_MONTH_MASK));
+		write_spi(DRV_DIG_START + 5, ((month | blink) & RTC_10MONTH_MASK) >> 4);
+	}
+	else
+	{
+		write_spi(DRV_DIG_START + 4, (month & RTC_MONTH_MASK));
+		write_spi(DRV_DIG_START + 5, (month & RTC_10MONTH_MASK) >> 4);
+	}
 }
 
 //Initialize RTC: no square wave out, ena oscillator
