@@ -34,10 +34,12 @@
 #define RTC_MONTH_MASK 0x0F
 #define RTC_10YR_MASK 0xF0
 #define RTC_YR_MASK 0x0F
+#define HIGH_NIB 0xF0
+#define LOW_NIB 0x0F
 
 //Clock has AM/PM led indicator
-#define AM_LED_PORT PORTB0
-#define PM_LED_PORT PORTB1
+#define AM_LED_PORT PORTB1
+#define PM_LED_PORT PORTB0
 
 void write_spi(unsigned char, unsigned char);
 void update_drv_time(void);
@@ -46,17 +48,6 @@ void config_rtc(void);
 void read_rtc(void);
 void write_rtc(void);
 char bin_to_bcd(char);
-
-ISR(TIMER0_OVF_vect)
-{
-	debounce();
-	blink_cnt++;
-	if(blink_cnt > 100)
-	{
-		blink_cnt = 0;
-		blink = ~blink;
-	}	
-}
 
 //holds time data to/from RTC
 volatile char sec;
@@ -79,6 +70,17 @@ volatile enum modes cur_mode = Run;
 //Handle blink during set mode
 volatile char blink_cnt;
 volatile char blink;
+
+ISR(TIMER0_OVF_vect)
+{
+	debounce();
+	blink_cnt++;
+	if(blink_cnt > 25)
+	{
+		blink_cnt = 0;
+		blink = ~blink;
+	}
+}
 
 int main(void)
 {
@@ -207,7 +209,7 @@ int main(void)
 					}
 					else
 					{
-						hrs = bin_to_bcd(btn_cnt) & (RTC_10HR_MASK | RTC_HR_MASK);
+						hrs = bin_to_bcd(btn_cnt - 12) & (RTC_10HR_MASK | RTC_HR_MASK);
 						hrs |= 0b01100000; //12/24 is high, set PM
 					}
 					break;
@@ -257,8 +259,8 @@ void update_drv_time(void)
 	//Blink minute during Set
 	if(cur_mode == Set && cur_set == Min)
 	{
-		write_spi(DRV_DIG_START + 2, ((min | blink) & RTC_MIN_MASK));
-		write_spi(DRV_DIG_START + 3, ((min | blink) & RTC_10MIN_MASK) >> 4);
+		write_spi(DRV_DIG_START + 2, ((min | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 3, ((min | blink) & HIGH_NIB) >> 4);
 	}
 	else
 	{
@@ -269,8 +271,8 @@ void update_drv_time(void)
 	//Blink hour during Set
 	if(cur_mode == Set && cur_set == Hour)
 	{
-		write_spi(DRV_DIG_START + 4, ((hrs | blink) & RTC_HR_MASK));
-		write_spi(DRV_DIG_START + 5, ((hrs | blink) & RTC_10HR_MASK) >> 4);
+		write_spi(DRV_DIG_START + 4, ((hrs | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 5, ((hrs & RTC_10HR_MASK) | blink) >> 4);
 	}
 	else
 	{
@@ -285,8 +287,8 @@ void update_drv_date(void)
 	//Blink year during Set
 	if(cur_mode == Set && cur_set == Year)
 	{
-		write_spi(DRV_DIG_START + 0, ((year | blink) & RTC_YR_MASK));
-		write_spi(DRV_DIG_START + 1, ((year | blink) & RTC_10YR_MASK) >> 4);
+		write_spi(DRV_DIG_START + 0, ((year | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 1, ((year | blink) & HIGH_NIB) >> 4);
 	}
 	else
 	{
@@ -297,8 +299,8 @@ void update_drv_date(void)
 	//Blink day
 	if(cur_mode == Set && cur_set == Day)
 	{
-		write_spi(DRV_DIG_START + 2, ((date | blink) & RTC_DATE_MASK));
-		write_spi(DRV_DIG_START + 3, ((date | blink) & RTC_10DATE_MASK) >> 4);
+		write_spi(DRV_DIG_START + 2, ((date | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 3, ((date | blink) & HIGH_NIB) >> 4);
 	}
 	else
 	{
@@ -307,10 +309,10 @@ void update_drv_date(void)
 	}
 
 	//Blink month
-	if(cur_mode == Set && cur_set = Month)
+	if(cur_mode == Set && cur_set == Month)
 	{
-		write_spi(DRV_DIG_START + 4, ((month | blink) & RTC_MONTH_MASK));
-		write_spi(DRV_DIG_START + 5, ((month | blink) & RTC_10MONTH_MASK) >> 4);
+		write_spi(DRV_DIG_START + 4, ((month | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 5, ((month | blink) & HIGH_NIB) >> 4);
 	}
 	else
 	{
