@@ -253,31 +253,31 @@ void write_spi(unsigned char high_byte, unsigned char low_byte)
 //Put time on 7-segs
 void update_drv_time(void)
 {
-	write_spi(DRV_DIG_START + 0, (sec & RTC_SEC_MASK));
-	write_spi(DRV_DIG_START + 1, (sec & RTC_10SEC_MASK) >> 4);
+	write_spi(DRV_DIG_START + 5, (sec & RTC_SEC_MASK));
+	write_spi(DRV_DIG_START + 4, (sec & RTC_10SEC_MASK) >> 4);
 	
 	//Blink minute during Set
 	if(cur_mode == Set && cur_set == Min)
 	{
-		write_spi(DRV_DIG_START + 2, ((min | blink) & LOW_NIB));
-		write_spi(DRV_DIG_START + 3, ((min | blink) & HIGH_NIB) >> 4);
+		write_spi(DRV_DIG_START + 3, ((min | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 2, ((min | blink) & HIGH_NIB) >> 4);
 	}
 	else
 	{
-		write_spi(DRV_DIG_START + 2, (min & RTC_MIN_MASK));
-		write_spi(DRV_DIG_START + 3, (min & RTC_10MIN_MASK) >> 4);	
+		write_spi(DRV_DIG_START + 3, (min & RTC_MIN_MASK));
+		write_spi(DRV_DIG_START + 2, (min & RTC_10MIN_MASK) >> 4);	
 	}
 
 	//Blink hour during Set
 	if(cur_mode == Set && cur_set == Hour)
 	{
-		write_spi(DRV_DIG_START + 4, ((hrs | blink) & LOW_NIB));
-		write_spi(DRV_DIG_START + 5, ((hrs & RTC_10HR_MASK) | blink) >> 4);
+		write_spi(DRV_DIG_START + 1, ((hrs | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 0, ((hrs & RTC_10HR_MASK) | blink) >> 4);
 	}
 	else
 	{
-		write_spi(DRV_DIG_START + 4, (hrs & RTC_HR_MASK));
-		write_spi(DRV_DIG_START + 5, (hrs & RTC_10HR_MASK) >> 4);	
+		write_spi(DRV_DIG_START + 1, (hrs & RTC_HR_MASK));
+		write_spi(DRV_DIG_START + 0, (hrs & RTC_10HR_MASK) >> 4);	
 	}
 }
 
@@ -287,37 +287,37 @@ void update_drv_date(void)
 	//Blink year during Set
 	if(cur_mode == Set && cur_set == Year)
 	{
-		write_spi(DRV_DIG_START + 0, ((year | blink) & LOW_NIB));
-		write_spi(DRV_DIG_START + 1, ((year | blink) & HIGH_NIB) >> 4);
+		write_spi(DRV_DIG_START + 5, ((year | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 4, ((year | blink) & HIGH_NIB) >> 4);
 	}
 	else
 	{
-		write_spi(DRV_DIG_START + 0, (year & RTC_YR_MASK));
-		write_spi(DRV_DIG_START + 1, (year & RTC_10YR_MASK) >> 4);	
+		write_spi(DRV_DIG_START + 5, (year & RTC_YR_MASK));
+		write_spi(DRV_DIG_START + 4, (year & RTC_10YR_MASK) >> 4);	
 	}
 	
 	//Blink day
 	if(cur_mode == Set && cur_set == Day)
 	{
-		write_spi(DRV_DIG_START + 2, ((date | blink) & LOW_NIB));
-		write_spi(DRV_DIG_START + 3, ((date | blink) & HIGH_NIB) >> 4);
+		write_spi(DRV_DIG_START + 3, ((date | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 2, ((date | blink) & HIGH_NIB) >> 4);
 	}
 	else
 	{
-		write_spi(DRV_DIG_START + 2, (date & RTC_DATE_MASK));
-		write_spi(DRV_DIG_START + 3, (date & RTC_10DATE_MASK) >> 4);
+		write_spi(DRV_DIG_START + 3, (date & RTC_DATE_MASK));
+		write_spi(DRV_DIG_START + 2, (date & RTC_10DATE_MASK) >> 4);
 	}
 
 	//Blink month
 	if(cur_mode == Set && cur_set == Month)
 	{
-		write_spi(DRV_DIG_START + 4, ((month | blink) & LOW_NIB));
-		write_spi(DRV_DIG_START + 5, ((month | blink) & HIGH_NIB) >> 4);
+		write_spi(DRV_DIG_START + 1, ((month | blink) & LOW_NIB));
+		write_spi(DRV_DIG_START + 0, ((month | blink) & HIGH_NIB) >> 4);
 	}
 	else
 	{
-		write_spi(DRV_DIG_START + 4, (month & RTC_MONTH_MASK));
-		write_spi(DRV_DIG_START + 5, (month & RTC_10MONTH_MASK) >> 4);
+		write_spi(DRV_DIG_START + 1, (month & RTC_MONTH_MASK));
+		write_spi(DRV_DIG_START + 0, (month & RTC_10MONTH_MASK) >> 4);
 	}
 }
 
